@@ -757,7 +757,10 @@ const SESSION_LEN_MS = 15 * 60 * 1000;
 let sessionStartAt = null, pausedMsTotal = 0, pauseStartAt = null;
 let badAccumMs = 0, lastBadTickMs = null, sessionEnded = false;
 let alertEnabled = true, badSinceTs = null, lastAlertTs = 0;
-const BAD_GRACE_MS = 3000, ALERT_COOLDOWN_MS = 6000;
+// Alert timing:
+//   BAD_GRACE_MS     — wait this long before first alert (avoids triggering on brief movements)
+//   ALERT_COOLDOWN_MS — once first alert fires, repeat at this interval until upright again
+const BAD_GRACE_MS = 3000, ALERT_COOLDOWN_MS = 2000;
 const SIZE_FORWARD = 0.10, SIZE_BACK = 0.10;
 const DRIFT_DOWN = 0.10, DRIFT_UP = 0.10;
 const TILT_DEG = 12, MOVE_THRESH = 8;
