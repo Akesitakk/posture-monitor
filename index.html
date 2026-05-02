@@ -421,7 +421,7 @@ const translations = {
     errNetwork:      'Connection problem. Please try again.',
     title: 'Posture Monitor',
     desc:  'Tracks your face to detect when you slouch toward the screen or slump down.',
-    tip:   '📱 Place your phone <b>in front of you</b> at eye level (e.g. on top of your monitor or propped on your desk). Sit how you want to be, then tap "Set Baseline".',
+    tip:   '📱 Place your phone <b>in front of you</b> at eye level. Sit how you want to be, then tap "Set Baseline".<br><br>🔊 <b>iPhone:</b> turn off the silent switch (orange = silent) so you hear alerts.',
     startCamera: 'Start Camera', loading: 'Loading AI model…',
     detecting: 'Detecting…', sitUprightTap: 'Sit upright, tap Set Baseline',
     noFaceDetected: 'No face detected', moving: 'Moving',
@@ -462,7 +462,7 @@ const translations = {
     errNetwork:      'การเชื่อมต่อมีปัญหา กรุณาลองใหม่',
     title: 'ตรวจจับท่านั่ง',
     desc: 'ติดตามใบหน้าเพื่อตรวจจับเมื่อคุณก้มเข้าหาจอหรือนั่งหลังค่อม',
-    tip: '📱 วางโทรศัพท์ไว้<b>ตรงหน้าคุณ</b>ในระดับสายตา (เช่น บนจอคอม หรือพิงไว้บนโต๊ะ) นั่งในท่าที่ต้องการ แล้วแตะ "ตั้งค่าเริ่มต้น"',
+    tip: '📱 วางโทรศัพท์ไว้<b>ตรงหน้าคุณ</b>ในระดับสายตา นั่งในท่าที่ต้องการ แล้วแตะ "ตั้งค่าเริ่มต้น"<br><br>🔊 <b>iPhone:</b> ปิดโหมดเงียบ (สวิตช์สีส้ม = เงียบ) เพื่อให้ได้ยินเสียงแจ้งเตือน',
     startCamera: 'เริ่มกล้อง', loading: 'กำลังโหลดโมเดล AI…',
     detecting: 'กำลังตรวจจับ…', sitUprightTap: 'นั่งตัวตรง แล้วแตะตั้งค่าเริ่มต้น',
     noFaceDetected: 'ไม่พบใบหน้า', moving: 'กำลังเคลื่อนไหว',
@@ -759,10 +759,8 @@ async function start() {
   startBtn.style.display = 'none';
   loading.style.display = 'block';
   errEl.textContent = '';
-  // Init audio on user gesture — required by browsers
-  try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  } catch {}
+  // Unlock audio on this user gesture — required by mobile browsers
+  unlockAudio();
   try {
     await setupCamera();
     await loadModel();
@@ -835,6 +833,8 @@ function calibrate() {
       pauseBtn.textContent = t('pauseBtn');
       finishCountdown();
       showToast(t('sessionStarted'));
+      testBeep();   // confirmation that audio is working
+      if (navigator.vibrate) navigator.vibrate(150);
     } else {
       cdNumEl.textContent = n;
       cdNumEl.style.animation = 'none';
@@ -856,32 +856,67 @@ function toggleMute() {
   muteBtn.textContent = alertEnabled ? t('alertOn') : t('alertOff');
   if (!alertEnabled) { flashEl.classList.remove('on'); banner.classList.remove('show'); }
 }
+function unlockAudio() {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) { console.error('AudioContext failed:', e); return; }
+  }
+  if (audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch {} }
+  // Play a 1-sample silent buffer to fully unlock audio on iOS Safari
+  try {
+    const buf = audioCtx.createBuffer(1, 1, 22050);
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(audioCtx.destination);
+    src.start(0);
+  } catch {}
+}
+
 function beep() {
   if (!audioCtx) return;
-  // Resume in case browser auto-suspended the context
   if (audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch {} }
   try {
     const now = audioCtx.currentTime;
-    // Two-tone descending beep — distinctive, attention-grabbing
-    [880, 660].forEach((freq, i) => {
+    // Three-tone urgent alert — louder + longer for noisy environments
+    [880, 660, 880].forEach((freq, i) => {
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
-      osc.type = 'sine';
+      osc.type = 'square';   // square wave is more attention-grabbing than sine
       osc.frequency.value = freq;
-      const t = now + i * 0.18;
+      const t = now + i * 0.20;
       gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(0.35, t + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+      gain.gain.linearRampToValueAtTime(0.6, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
       osc.connect(gain).connect(audioCtx.destination);
       osc.start(t);
-      osc.stop(t + 0.17);
+      osc.stop(t + 0.19);
     });
   } catch (e) { console.warn('beep failed', e); }
 }
 
+function testBeep() {
+  // Short, quiet confirmation beep so user knows audio is working
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch {} }
+  try {
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 660;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.25, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.16);
+  } catch {}
+}
+
 function triggerAlert() {
   beep();
-  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
   flashEl.classList.add('on');
   setTimeout(() => flashEl.classList.remove('on'), 400);
   banner.classList.add('show');
