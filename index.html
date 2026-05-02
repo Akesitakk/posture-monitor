@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -295,8 +295,8 @@
   <canvas id="canvas"></canvas>
 
   <div class="lang-toggle" id="langToggle">
-    <button data-lang="en" class="active">EN</button>
-    <button data-lang="th">ไทย</button>
+    <button data-lang="en">EN</button>
+    <button data-lang="th" class="active">ไทย</button>
   </div>
 
   <div class="hud" id="hud" style="display:none">
@@ -489,7 +489,7 @@ const translations = {
     saveFailed: 'บันทึกไม่ได้ (จะลองอีกครั้ง)',
   }
 };
-let lang = (navigator.language || 'en').toLowerCase().startsWith('th') ? 'th' : 'en';
+let lang = 'th';   // Default to Thai. User can switch via top-right toggle.
 function t(key, ...args) {
   const val = (translations[lang] && translations[lang][key]) ?? translations.en[key] ?? key;
   return typeof val === 'function' ? val(...args) : val;
@@ -742,6 +742,7 @@ let sessionStartAt = null, pausedMsTotal = 0, pauseStartAt = null;
 let badAccumMs = 0, lastBadTickMs = null, sessionEnded = false;
 let alertEnabled = true, badSinceTs = null, lastAlertTs = 0;
 const BAD_GRACE_MS = 3000, ALERT_COOLDOWN_MS = 6000;
+let audioCtx = null;
 const SIZE_FORWARD = 0.10, SIZE_BACK = 0.10;
 const DRIFT_DOWN = 0.10, DRIFT_UP = 0.10;
 const TILT_DEG = 12, MOVE_THRESH = 8;
@@ -758,6 +759,10 @@ async function start() {
   startBtn.style.display = 'none';
   loading.style.display = 'block';
   errEl.textContent = '';
+  // Init audio on user gesture — required by browsers
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch {}
   try {
     await setupCamera();
     await loadModel();
@@ -851,7 +856,31 @@ function toggleMute() {
   muteBtn.textContent = alertEnabled ? t('alertOn') : t('alertOff');
   if (!alertEnabled) { flashEl.classList.remove('on'); banner.classList.remove('show'); }
 }
+function beep() {
+  if (!audioCtx) return;
+  // Resume in case browser auto-suspended the context
+  if (audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch {} }
+  try {
+    const now = audioCtx.currentTime;
+    // Two-tone descending beep — distinctive, attention-grabbing
+    [880, 660].forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t = now + i * 0.18;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.35, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.17);
+    });
+  } catch (e) { console.warn('beep failed', e); }
+}
+
 function triggerAlert() {
+  beep();
   if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
   flashEl.classList.add('on');
   setTimeout(() => flashEl.classList.remove('on'), 400);
