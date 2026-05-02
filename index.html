@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Posture Monitor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #000;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Sarabun", sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+  .stage { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+  video, canvas {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%; object-fit: cover;
+  }
+  .mirrored video, .mirrored canvas { transform: scaleX(-1); }
+
+  .auth {
+    position: absolute; inset: 0;
+    background: #0a0a0a;
+    z-index: 30;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 24px;
+    overflow-y: auto;
+  }
+  .auth.hidden { display: none; }
+  .auth h1 { font-size: 24px; margin-bottom: 6px; text-align: center; }
+  .auth .desc { opacity: 0.65; font-size: 14px; max-width: 320px; text-align: center; margin-bottom: 28px; }
+  .auth .field { width: 100%; max-width: 320px; margin-bottom: 14px; }
+  .auth label {
+    display: block; font-size: 12px;
+    opacity: 0.6; margin-bottom: 6px; padding-left: 4px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .auth input {
+    width: 100%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #fff;
+    padding: 14px 16px;
+    font-size: 16px;
+    border-radius: 12px;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+    -webkit-appearance: none;
+  }
+  .auth input:focus { border-color: #4ade80; background: rgba(74,222,128,0.08); }
+  .auth input.error { border-color: #f87171; background: rgba(248,113,113,0.08); }
+  .auth input:disabled { opacity: 0.6; }
+  .auth .submit {
+    width: 100%; max-width: 320px;
+    background: #4ade80; color: #000;
+    border: none;
+    padding: 16px;
+    font-size: 16px; font-weight: 700;
+    border-radius: 999px;
+    cursor: pointer;
+    margin-top: 8px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .auth .submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .auth .submit:active:not(:disabled) { transform: scale(0.98); }
+  .auth .err-msg {
+    color: #f87171;
+    font-size: 13px;
+    margin-top: 12px;
+    min-height: 18px;
+    text-align: center;
+  }
+  .auth .small { font-size: 12px; opacity: 0.6; margin-top: 16px; text-align: center; }
+  .auth .small a { color: #4ade80; text-decoration: none; cursor: pointer; }
+
+  .hud {
+    position: absolute;
+    top: env(safe-area-inset-top, 16px);
+    left: 16px; right: 16px;
+    z-index: 10;
+    display: flex; flex-direction: column; gap: 10px;
+    pointer-events: none;
+    padding-right: 110px;
+  }
+  .panel {
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    padding: 12px 14px;
+  }
+  .status-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 16px; font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #6b7280;
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; }
+  .metrics .label { opacity: 0.55; }
+  .metrics .value { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  .controls {
+    position: absolute;
+    bottom: env(safe-area-inset-bottom, 24px);
+    left: 0; right: 0;
+    display: flex; justify-content: center; gap: 10px;
+    z-index: 10; padding: 16px;
+    flex-wrap: wrap;
+  }
+  button {
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.25);
+    padding: 12px 18px;
+    border-radius: 999px;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:active { transform: scale(0.96); background: rgba(255,255,255,0.25); }
+  button.primary { background: #4ade80; color: #000; border-color: #4ade80; font-weight: 700; }
+  button.primary:active { background: #22c55e; }
+
+  .splash {
+    position: absolute; inset: 0;
+    background: #0a0a0a;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 20; text-align: center; padding: 24px;
+  }
+  .splash.hidden { display: none; }
+  .splash .greeting { font-size: 13px; color: #4ade80; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+  .splash h1 { font-size: 22px; margin-bottom: 8px; }
+  .splash p { opacity: 0.7; font-size: 14px; max-width: 320px; margin-bottom: 6px; }
+  .splash .tip {
+    background: rgba(74,222,128,0.1);
+    border: 1px solid rgba(74,222,128,0.3);
+    color: #86efac;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 12px;
+    margin: 16px 0 24px;
+    max-width: 320px;
+    text-align: left;
+  }
+  .splash .start-btn { padding: 16px 32px; font-size: 16px; }
+  .splash .logout {
+    background: transparent; color: rgba(255,255,255,0.6);
+    border: none; padding: 8px 16px; font-size: 12px;
+    margin-top: 16px; cursor: pointer;
+  }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid rgba(255,255,255,0.2);
+    border-top-color: #4ade80;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 16px auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error { color: #f87171; font-size: 13px; margin-top: 12px; max-width: 320px; }
+
+  .toast {
+    position: absolute;
+    bottom: 100px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(74,222,128,0.95);
+    color: #000;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 14px;
+    z-index: 31;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    text-align: center;
+    max-width: 80vw;
+  }
+  .toast.show { opacity: 1; }
+
+  .flash { position: absolute; inset: 0; background: #ef4444; opacity: 0; pointer-events: none; z-index: 5; transition: opacity 0.15s; mix-blend-mode: multiply; }
+  .flash.on { opacity: 0.35; }
+
+  .alert-banner {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    background: rgba(239, 68, 68, 0.95);
+    color: #fff;
+    padding: 18px 28px;
+    border-radius: 16px;
+    font-size: 18px; font-weight: 700;
+    z-index: 16;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+    box-shadow: 0 10px 40px rgba(239,68,68,0.5);
+    text-align: center;
+  }
+  .alert-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+  .countdown {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 18;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .countdown.show { opacity: 1; }
+  .countdown .label { font-size: 18px; font-weight: 600; opacity: 0.9; margin-bottom: 8px; text-align: center; padding: 0 24px; }
+  .countdown .num { font-size: 140px; font-weight: 800; color: #4ade80; line-height: 1; text-shadow: 0 0 30px rgba(74,222,128,0.6); animation: pop 1s ease-out; }
+  @keyframes pop {
+    0%   { transform: scale(0.6); opacity: 0; }
+    20%  { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1);   opacity: 1; }
+  }
+  .countdown .hint { font-size: 13px; opacity: 0.6; margin-top: 12px; }
+
+  .summary {
+    position: absolute; inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 25;
+    display: none;
+    flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 24px; text-align: center;
+  }
+  .summary.show { display: flex; }
+  .summary h2 { font-size: 28px; margin-bottom: 24px; }
+  .summary .big { font-size: 64px; font-weight: 800; line-height: 1; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+  .summary .big.good { color: #4ade80; text-shadow: 0 0 30px rgba(74,222,128,0.5); }
+  .summary .big.warn { color: #fbbf24; text-shadow: 0 0 30px rgba(251,191,36,0.5); }
+  .summary .big.bad  { color: #f87171; text-shadow: 0 0 30px rgba(248,113,113,0.5); }
+  .summary .big-label { opacity: 0.7; font-size: 14px; margin-bottom: 32px; }
+  .summary .row {
+    display: flex; justify-content: space-between;
+    width: 280px; padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    font-size: 15px;
+  }
+  .summary .row span:first-child { opacity: 0.65; }
+  .summary .row span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .summary .save-status { margin-top: 16px; font-size: 12px; opacity: 0.7; min-height: 16px; }
+  .summary .actions { display: flex; gap: 10px; margin-top: 24px; }
+
+  .lang-toggle {
+    position: absolute;
+    top: env(safe-area-inset-top, 16px);
+    right: 16px;
+    z-index: 32;
+    display: flex;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 999px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .lang-toggle button {
+    background: transparent; border: none;
+    color: rgba(255,255,255,0.6);
+    padding: 6px 12px; border-radius: 999px;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .lang-toggle button.active { background: rgba(255,255,255,0.95); color: #000; }
+  .lang-toggle button:active { transform: scale(0.95); }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas"></canvas>
+
+  <div class="lang-toggle" id="langToggle">
+    <button data-lang="en" class="active">EN</button>
+    <button data-lang="th">ไทย</button>
+  </div>
+
+  <div class="hud" id="hud" style="display:none">
+    <div class="panel">
+      <div class="status-row"><span class="dot" id="dot"></span><span id="status">Detecting…</span></div>
+      <div class="metrics">
+        <span class="label" data-i18n="timeLeft">Time left</span><span class="value" id="timeLeft">—</span>
+        <span class="label" data-i18n="slouchTime">Slouch time</span><span class="value" id="slouchTime">—</span>
+        <span class="label" data-i18n="uprightLabel">Upright</span><span class="value" id="uprightPct">—</span>
+        <span class="label" data-i18n="session">Session</span><span class="value" id="sessionState">Not started</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls" id="controls" style="display:none">
+    <button id="calibrate" class="primary" data-i18n="setBaseline">Set Baseline</button>
+    <button id="pause" data-i18n="pauseBtn">⏸ Pause</button>
+    <button id="stop" data-i18n="stopBtn">⏹ Stop</button>
+    <button id="mute" data-i18n="alertOn">⚠️ Alert: On</button>
+    <button id="flip" data-i18n="flipBtn">🔄 Flip</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="flash" id="flash"></div>
+  <div class="alert-banner" id="alertBanner" data-i18n="sitUpStraight">⚠️ Sit up straight!</div>
+
+  <div class="countdown" id="countdown">
+    <div class="label" data-i18n="countdownLabel">Sit upright… capturing baseline in</div>
+    <div class="num" id="countdownNum">5</div>
+    <div class="hint" data-i18n="countdownHint">Tap anywhere to cancel</div>
+  </div>
+
+  <div class="summary" id="summary">
+    <h2 data-i18n="summaryTitle">Session Complete</h2>
+    <div class="big" id="sumPct">—</div>
+    <div class="big-label" data-i18n="summaryBigLabel">time spent upright</div>
+    <div class="row"><span data-i18n="summarySessionLen">Session length</span><span id="sumLen">—</span></div>
+    <div class="row"><span data-i18n="summaryTimeUp">Time upright</span><span id="sumUp">—</span></div>
+    <div class="row"><span data-i18n="summaryTimeBad">Time slouching</span><span id="sumBad">—</span></div>
+    <div class="save-status" id="sumSaveStatus"></div>
+    <div class="actions">
+      <button class="primary" id="newSession" data-i18n="newSessionBtn">New Session</button>
+    </div>
+  </div>
+
+  <div class="splash hidden" id="splash">
+    <div class="greeting" id="greeting"></div>
+    <h1 data-i18n="title">Posture Monitor</h1>
+    <p data-i18n="desc">Tracks your face to detect when you slouch toward the screen or slump down.</p>
+    <div class="tip" data-i18n-html="tip">📱 Place your phone <b>in front of you</b> at eye level (e.g. on top of your monitor or propped on your desk). Sit how you want to be, then tap "Set Baseline".</div>
+    <button class="start-btn primary" id="start" data-i18n="startCamera">Start Camera</button>
+    <div id="loading" style="display:none">
+      <div class="spinner"></div>
+      <p data-i18n="loading">Loading AI model…</p>
+    </div>
+    <div class="error" id="error"></div>
+    <button class="logout" id="logoutBtn" data-i18n="logoutBtn">Logout</button>
+  </div>
+
+  <div class="auth" id="loginScreen">
+    <h1 data-i18n="loginTitle">Sign In</h1>
+    <p class="desc" data-i18n="loginDesc">Enter your phone number to continue.</p>
+    <div class="field">
+      <label data-i18n="phoneLabel">Phone number (10 digits)</label>
+      <input type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="10" id="loginPhone" autocomplete="tel" placeholder="0812345678">
+    </div>
+    <button class="submit" id="loginSubmit" data-i18n="continueBtn">Continue</button>
+    <div class="err-msg" id="loginError"></div>
+  </div>
+
+  <div class="auth hidden" id="registerScreen">
+    <h1 data-i18n="registerTitle">Create Account</h1>
+    <p class="desc" data-i18n="registerDesc">Welcome! Tell us about yourself.</p>
+    <div class="field">
+      <label data-i18n="phoneLabel">Phone number (10 digits)</label>
+      <input type="tel" inputmode="numeric" maxlength="10" id="regPhone" disabled>
+    </div>
+    <div class="field">
+      <label data-i18n="nameLabel">Full name</label>
+      <input type="text" id="regName" autocomplete="name" placeholder="Jane Doe">
+    </div>
+    <div class="field">
+      <label data-i18n="ageLabel">Age</label>
+      <input type="number" inputmode="numeric" min="1" max="120" id="regAge" placeholder="30">
+    </div>
+    <button class="submit" id="regSubmit" data-i18n="createAccountBtn">Create Account</button>
+    <div class="err-msg" id="regError"></div>
+    <div class="small">
+      <a id="regBack" data-i18n="backToLogin">← Back to login</a>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.15.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.15.0/dist/tf-converter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.15.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+
+<script>
+// =============================================================
+//  ⚙️ CONFIG — paste your Apps Script Web App URL here
+// =============================================================
+const API_URL = 'https://script.google.com/macros/s/AKfycbzExwAeyilMBQxW9zqWWOSfTwKM0kPBk9ib38HuESABy8AdeAkjIPTpdFJe3bpE2yK4/exec';
+
+// =============================================================
+//  i18n
+// =============================================================
+const translations = {
+  en: {
+    loginTitle: 'Sign In', loginDesc: 'Enter your phone number to continue.',
+    phoneLabel: 'Phone number (10 digits)', continueBtn: 'Continue',
+    registerTitle: 'Create Account', registerDesc: 'Welcome! Tell us about yourself.',
+    nameLabel: 'Full name', ageLabel: 'Age', createAccountBtn: 'Create Account',
+    backToLogin: '← Back to login',
+    welcomeBack: 'Welcome back, {name}', welcomeNew: 'Welcome, {name}',
+    logoutBtn: 'Logout',
+    errInvalidPhone: 'Please enter a 10-digit phone number.',
+    errInvalidName:  'Please enter your name.',
+    errInvalidAge:   'Please enter a valid age (1–120).',
+    errPhoneExists:  'That phone is already registered. Please log in.',
+    errNetwork:      'Connection problem. Please try again.',
+    title: 'Posture Monitor',
+    desc:  'Tracks your face to detect when you slouch toward the screen or slump down.',
+    tip:   '📱 Place your phone <b>in front of you</b> at eye level (e.g. on top of your monitor or propped on your desk). Sit how you want to be, then tap "Set Baseline".',
+    startCamera: 'Start Camera', loading: 'Loading AI model…',
+    detecting: 'Detecting…', sitUprightTap: 'Sit upright, tap Set Baseline',
+    noFaceDetected: 'No face detected', moving: 'Moving',
+    upright: 'Upright ✓', leaningForward: 'Leaning toward screen',
+    leaningBack: 'Leaning back', slumping: 'Slumping down',
+    headTooHigh: 'Head too high', headTilted: 'Head tilted', paused: 'Paused',
+    timeLeft: 'Time left', slouchTime: 'Slouch time',
+    uprightLabel: 'Upright', session: 'Session',
+    sessionActive: 'Active', sessionDone: 'Done', sessionNotStarted: 'Not started',
+    setBaseline: 'Set Baseline', cancelN: (n) => `Cancel (${n})`,
+    pauseBtn: '⏸ Pause', resumeBtn: '▶ Resume', stopBtn: '⏹ Stop',
+    alertOn: '⚠️ Alert: On', alertOff: '⚠️ Alert: Off',
+    flipBtn: '🔄 Flip', newSessionBtn: 'New Session',
+    sitUpStraight: '⚠️ Sit up straight!',
+    sessionStarted: 'Session started — 15 min',
+    cancelled: 'Cancelled', toastPaused: 'Paused', toastResumed: 'Resumed',
+    noActiveSession: 'No active session', noFaceToast: 'No face detected',
+    countdownLabel: 'Sit upright… capturing baseline in',
+    countdownHint: 'Tap anywhere to cancel',
+    summaryTitle: 'Session Complete', summaryBigLabel: 'time spent upright',
+    summarySessionLen: 'Session length', summaryTimeUp: 'Time upright',
+    summaryTimeBad: 'Time slouching',
+    saving: 'Saving to your account…', saved: 'Saved to your account ✓',
+    saveFailed: 'Could not save (will retry)',
+  },
+  th: {
+    loginTitle: 'เข้าสู่ระบบ', loginDesc: 'ใส่เบอร์โทรของคุณเพื่อเข้าสู่ระบบ',
+    phoneLabel: 'เบอร์โทร (10 หลัก)', continueBtn: 'ต่อไป',
+    registerTitle: 'สร้างบัญชี', registerDesc: 'ยินดีต้อนรับ! กรอกข้อมูลของคุณ',
+    nameLabel: 'ชื่อ-นามสกุล', ageLabel: 'อายุ', createAccountBtn: 'สร้างบัญชี',
+    backToLogin: '← กลับไปเข้าสู่ระบบ',
+    welcomeBack: 'ยินดีต้อนรับกลับ, {name}', welcomeNew: 'ยินดีต้อนรับ, {name}',
+    logoutBtn: 'ออกจากระบบ',
+    errInvalidPhone: 'กรุณาใส่เบอร์โทร 10 หลัก',
+    errInvalidName:  'กรุณาใส่ชื่อของคุณ',
+    errInvalidAge:   'กรุณาใส่อายุ (1–120)',
+    errPhoneExists:  'เบอร์นี้ลงทะเบียนแล้ว กรุณาเข้าสู่ระบบ',
+    errNetwork:      'การเชื่อมต่อมีปัญหา กรุณาลองใหม่',
+    title: 'ตรวจจับท่านั่ง',
+    desc: 'ติดตามใบหน้าเพื่อตรวจจับเมื่อคุณก้มเข้าหาจอหรือนั่งหลังค่อม',
+    tip: '📱 วางโทรศัพท์ไว้<b>ตรงหน้าคุณ</b>ในระดับสายตา (เช่น บนจอคอม หรือพิงไว้บนโต๊ะ) นั่งในท่าที่ต้องการ แล้วแตะ "ตั้งค่าเริ่มต้น"',
+    startCamera: 'เริ่มกล้อง', loading: 'กำลังโหลดโมเดล AI…',
+    detecting: 'กำลังตรวจจับ…', sitUprightTap: 'นั่งตัวตรง แล้วแตะตั้งค่าเริ่มต้น',
+    noFaceDetected: 'ไม่พบใบหน้า', moving: 'กำลังเคลื่อนไหว',
+    upright: 'ท่าถูกต้อง ✓', leaningForward: 'เอนเข้าหาจอ',
+    leaningBack: 'เอนหลัง', slumping: 'นั่งหลังค่อม',
+    headTooHigh: 'ศีรษะสูงเกินไป', headTilted: 'ศีรษะเอียง', paused: 'หยุดชั่วคราว',
+    timeLeft: 'เวลาที่เหลือ', slouchTime: 'เวลาท่าผิด',
+    uprightLabel: 'ตัวตรง', session: 'เซสชัน',
+    sessionActive: 'กำลังทำงาน', sessionDone: 'เสร็จสิ้น', sessionNotStarted: 'ยังไม่เริ่ม',
+    setBaseline: 'ตั้งค่าเริ่มต้น', cancelN: (n) => `ยกเลิก (${n})`,
+    pauseBtn: '⏸ หยุดชั่วคราว', resumeBtn: '▶ เล่นต่อ', stopBtn: '⏹ หยุด',
+    alertOn: '⚠️ แจ้งเตือน: เปิด', alertOff: '⚠️ แจ้งเตือน: ปิด',
+    flipBtn: '🔄 สลับกล้อง', newSessionBtn: 'เซสชันใหม่',
+    sitUpStraight: '⚠️ นั่งตัวตรง!',
+    sessionStarted: 'เริ่มเซสชันแล้ว — 15 นาที',
+    cancelled: 'ยกเลิกแล้ว', toastPaused: 'หยุดชั่วคราว', toastResumed: 'เล่นต่อแล้ว',
+    noActiveSession: 'ไม่มีเซสชัน', noFaceToast: 'ไม่พบใบหน้า',
+    countdownLabel: 'นั่งตัวตรง… จะบันทึกค่าเริ่มต้นใน',
+    countdownHint: 'แตะที่ใดก็ได้เพื่อยกเลิก',
+    summaryTitle: 'เซสชันเสร็จสิ้น', summaryBigLabel: 'เวลาที่นั่งตัวตรง',
+    summarySessionLen: 'ระยะเวลาเซสชัน', summaryTimeUp: 'เวลาท่าถูกต้อง',
+    summaryTimeBad: 'เวลาท่าผิด',
+    saving: 'กำลังบันทึกข้อมูล…', saved: 'บันทึกแล้ว ✓',
+    saveFailed: 'บันทึกไม่ได้ (จะลองอีกครั้ง)',
+  }
+};
+let lang = (navigator.language || 'en').toLowerCase().startsWith('th') ? 'th' : 'en';
+function t(key, ...args) {
+  const val = (translations[lang] && translations[lang][key]) ?? translations.en[key] ?? key;
+  return typeof val === 'function' ? val(...args) : val;
+}
+function applyLanguage() {
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+  document.querySelectorAll('#langToggle button').forEach(b => {
+    b.classList.toggle('active', b.dataset.lang === lang);
+  });
+  document.documentElement.lang = lang;
+  if (typeof muteBtn !== 'undefined') muteBtn.textContent = alertEnabled ? t('alertOn') : t('alertOff');
+  if (typeof pauseBtn !== 'undefined') pauseBtn.textContent = pauseStartAt ? t('resumeBtn') : t('pauseBtn');
+  if (typeof calBtn !== 'undefined' && cdTimer === null) calBtn.textContent = t('setBaseline');
+  if (typeof currentUser !== 'undefined' && currentUser) updateGreeting();
+}
+document.querySelectorAll('#langToggle button').forEach(btn => {
+  btn.addEventListener('click', () => { lang = btn.dataset.lang; applyLanguage(); });
+});
+
+// =============================================================
+//  Backend — JSON over fetch (with localStorage fallback)
+// =============================================================
+const apiConfigured = API_URL && !API_URL.includes('PASTE_YOUR');
+
+async function api(action, payload) {
+  if (!apiConfigured) return LocalBackend[action](payload);
+  try {
+    // Use text/plain to avoid CORS preflight (Apps Script accepts the JSON body directly)
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, ...payload }),
+      redirect: 'follow'
+    });
+    return await res.json();
+  } catch (e) {
+    console.error('API error:', e);
+    return { ok: false, error: 'network' };
+  }
+}
+
+const LocalBackend = {
+  _users()   { try { return JSON.parse(localStorage.getItem('pm_users')   || '{}'); } catch { return {}; } },
+  _sess()    { try { return JSON.parse(localStorage.getItem('pm_sessions')|| '[]'); } catch { return []; } },
+  _saveU(u)  { localStorage.setItem('pm_users',   JSON.stringify(u)); },
+  _saveS(s)  { localStorage.setItem('pm_sessions',JSON.stringify(s)); },
+  login({ phone }) {
+    if (!/^\d{10}$/.test(phone)) return { ok:false, error:'invalid_phone' };
+    const u = this._users()[phone];
+    if (!u) return { ok:true, exists:false };
+    return { ok:true, exists:true, user:{ phone, name:u.name, age:u.age } };
+  },
+  register({ name, phone, age }) {
+    name = String(name||'').trim();
+    if (!name) return { ok:false, error:'invalid_name' };
+    if (!/^\d{10}$/.test(phone)) return { ok:false, error:'invalid_phone' };
+    age = parseInt(age,10);
+    if (!age || age<1 || age>120) return { ok:false, error:'invalid_age' };
+    const us = this._users();
+    if (us[phone]) return { ok:false, error:'phone_exists' };
+    us[phone] = { name, age, registeredAt: Date.now() };
+    this._saveU(us);
+    return { ok:true, user:{ phone, name, age } };
+  },
+  session(p) {
+    if (!p || !p.phone) return { ok:false, error:'no_phone' };
+    const s = this._sess(); s.push(p); this._saveS(s);
+    return { ok:true };
+  }
+};
+
+// =============================================================
+//  Auth flow
+// =============================================================
+const loginScreen   = document.getElementById('loginScreen');
+const registerScreen= document.getElementById('registerScreen');
+const splashEl      = document.getElementById('splash');
+const greetingEl    = document.getElementById('greeting');
+const loginPhoneIn  = document.getElementById('loginPhone');
+const loginSubmitBtn= document.getElementById('loginSubmit');
+const loginErrEl    = document.getElementById('loginError');
+const regPhoneIn    = document.getElementById('regPhone');
+const regNameIn     = document.getElementById('regName');
+const regAgeIn      = document.getElementById('regAge');
+const regSubmitBtn  = document.getElementById('regSubmit');
+const regErrEl      = document.getElementById('regError');
+const regBackLink   = document.getElementById('regBack');
+const logoutBtn     = document.getElementById('logoutBtn');
+
+let currentUser = null;
+let isFirstLogin = false;
+
+loginPhoneIn.addEventListener('input', () => {
+  loginPhoneIn.value = loginPhoneIn.value.replace(/\D/g, '').slice(0, 10);
+  loginPhoneIn.classList.remove('error');
+  loginErrEl.textContent = '';
+});
+loginSubmitBtn.addEventListener('click', handleLogin);
+loginPhoneIn.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+regSubmitBtn.addEventListener('click', handleRegister);
+regBackLink.addEventListener('click', () => {
+  registerScreen.classList.add('hidden');
+  loginScreen.classList.remove('hidden');
+  loginErrEl.textContent = '';
+});
+logoutBtn.addEventListener('click', logout);
+
+async function handleLogin() {
+  const phone = loginPhoneIn.value.trim();
+  loginErrEl.textContent = '';
+  loginPhoneIn.classList.remove('error');
+  if (!/^\d{10}$/.test(phone)) {
+    loginPhoneIn.classList.add('error');
+    loginErrEl.textContent = t('errInvalidPhone');
+    return;
+  }
+  loginSubmitBtn.disabled = true;
+  try {
+    const res = await api('login', { phone });
+    if (!res.ok) { loginErrEl.textContent = mapError(res.error); return; }
+    if (res.exists) {
+      currentUser  = res.user;
+      isFirstLogin = false;
+      try { localStorage.setItem('pm_phone', phone); } catch {}
+      goToSplash();
+    } else {
+      regPhoneIn.value = phone;
+      registerScreen.classList.remove('hidden');
+      loginScreen.classList.add('hidden');
+      regNameIn.value = ''; regAgeIn.value = ''; regErrEl.textContent = '';
+      setTimeout(() => regNameIn.focus(), 100);
+    }
+  } finally {
+    loginSubmitBtn.disabled = false;
+  }
+}
+
+async function handleRegister() {
+  const phone = regPhoneIn.value.trim();
+  const name  = regNameIn.value.trim();
+  const age   = parseInt(regAgeIn.value, 10);
+  regErrEl.textContent = '';
+  [regNameIn, regAgeIn].forEach(el => el.classList.remove('error'));
+  if (!name) { regNameIn.classList.add('error'); regErrEl.textContent = t('errInvalidName'); return; }
+  if (!age || age<1||age>120) { regAgeIn.classList.add('error'); regErrEl.textContent = t('errInvalidAge'); return; }
+
+  regSubmitBtn.disabled = true;
+  try {
+    const res = await api('register', { name, phone, age });
+    if (!res.ok) { regErrEl.textContent = mapError(res.error); return; }
+    currentUser  = res.user;
+    isFirstLogin = true;
+    try { localStorage.setItem('pm_phone', phone); } catch {}
+    goToSplash();
+  } finally {
+    regSubmitBtn.disabled = false;
+  }
+}
+
+function mapError(code) {
+  switch (code) {
+    case 'invalid_phone': return t('errInvalidPhone');
+    case 'invalid_name':  return t('errInvalidName');
+    case 'invalid_age':   return t('errInvalidAge');
+    case 'phone_exists':  return t('errPhoneExists');
+    default:              return t('errNetwork');
+  }
+}
+function updateGreeting() {
+  if (!currentUser) { greetingEl.textContent = ''; return; }
+  const key = isFirstLogin ? 'welcomeNew' : 'welcomeBack';
+  greetingEl.textContent = t(key).replace('{name}', currentUser.name);
+}
+function goToSplash() {
+  loginScreen.classList.add('hidden');
+  registerScreen.classList.add('hidden');
+  splashEl.classList.remove('hidden');
+  updateGreeting();
+}
+function logout() {
+  if (video.srcObject) {
+    try { video.srcObject.getTracks().forEach(t => t.stop()); } catch {}
+    video.srcObject = null;
+  }
+  running = false;
+  resetSession();
+  currentUser = null; isFirstLogin = false;
+  try { localStorage.removeItem('pm_phone'); } catch {}
+  splashEl.classList.add('hidden');
+  hud.style.display = 'none';
+  ctrls.style.display = 'none';
+  loginScreen.classList.remove('hidden');
+  loginPhoneIn.value = '';
+  loginErrEl.textContent = '';
+}
+try {
+  const saved = localStorage.getItem('pm_phone');
+  if (saved && /^\d{10}$/.test(saved)) loginPhoneIn.value = saved;
+} catch {}
+
+// =============================================================
+//  Posture monitor app
+// =============================================================
+const video    = document.getElementById('video');
+const canvas   = document.getElementById('canvas');
+const ctx      = canvas.getContext('2d');
+const stage    = document.getElementById('stage');
+const startBtn = document.getElementById('start');
+const loading  = document.getElementById('loading');
+const errEl    = document.getElementById('error');
+const hud      = document.getElementById('hud');
+const ctrls    = document.getElementById('controls');
+const flipBtn  = document.getElementById('flip');
+const calBtn   = document.getElementById('calibrate');
+const muteBtn  = document.getElementById('mute');
+const pauseBtn = document.getElementById('pause');
+const stopBtn  = document.getElementById('stop');
+const toast    = document.getElementById('toast');
+const flashEl  = document.getElementById('flash');
+const banner   = document.getElementById('alertBanner');
+const cdEl     = document.getElementById('countdown');
+const cdNumEl  = document.getElementById('countdownNum');
+const dot      = document.getElementById('dot');
+const statusEl = document.getElementById('status');
+const timeLeftEl  = document.getElementById('timeLeft');
+const slouchTimeEl= document.getElementById('slouchTime');
+const uprightPctEl= document.getElementById('uprightPct');
+const sessionStateEl = document.getElementById('sessionState');
+const summaryEl = document.getElementById('summary');
+const sumPctEl  = document.getElementById('sumPct');
+const sumLenEl  = document.getElementById('sumLen');
+const sumUpEl   = document.getElementById('sumUp');
+const sumBadEl  = document.getElementById('sumBad');
+const sumSaveStatus = document.getElementById('sumSaveStatus');
+const newSessionBtn = document.getElementById('newSession');
+
+const NOSE = 0, LEYE = 1, REYE = 2, LEAR = 3, REAR = 4;
+const MIN_SCORE = 0.3;
+
+let detector = null;
+let useFront = true;
+let running  = false;
+const eyeDistBuf=[], faceXBuf=[], faceYBuf=[], tiltBuf=[], moveBuf=[];
+let curEyeDist=0, curCenterX=0, curCenterY=0, curTilt=0;
+let prevCenter = null;
+let baseline = null;
+const SESSION_LEN_MS = 15 * 60 * 1000;
+let sessionStartAt = null, pausedMsTotal = 0, pauseStartAt = null;
+let badAccumMs = 0, lastBadTickMs = null, sessionEnded = false;
+let alertEnabled = true, badSinceTs = null, lastAlertTs = 0;
+const BAD_GRACE_MS = 3000, ALERT_COOLDOWN_MS = 6000;
+const SIZE_FORWARD = 0.10, SIZE_BACK = 0.10;
+const DRIFT_DOWN = 0.10, DRIFT_UP = 0.10;
+const TILT_DEG = 12, MOVE_THRESH = 8;
+
+startBtn.addEventListener('click', start);
+flipBtn.addEventListener('click', flip);
+calBtn.addEventListener('click', calibrate);
+muteBtn.addEventListener('click', toggleMute);
+pauseBtn.addEventListener('click', togglePause);
+stopBtn.addEventListener('click', stopSession);
+newSessionBtn.addEventListener('click', resetSession);
+
+async function start() {
+  startBtn.style.display = 'none';
+  loading.style.display = 'block';
+  errEl.textContent = '';
+  try {
+    await setupCamera();
+    await loadModel();
+    splashEl.classList.add('hidden');
+    hud.style.display = 'flex';
+    ctrls.style.display = 'flex';
+    running = true;
+    loop();
+  } catch (e) {
+    loading.style.display = 'none';
+    startBtn.style.display = 'inline-block';
+    errEl.textContent = 'Error: ' + (e.message || e);
+  }
+}
+async function setupCamera() {
+  if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: useFront ? 'user' : { exact:'environment' }, width:{ideal:640}, height:{ideal:480} },
+      audio: false
+    });
+  } catch {
+    stream = await navigator.mediaDevices.getUserMedia({ video:{facingMode: useFront?'user':'environment'}, audio:false });
+  }
+  video.srcObject = stream;
+  await new Promise(r => video.onloadedmetadata = r);
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  stage.classList.toggle('mirrored', useFront);
+}
+async function loadModel() {
+  if (detector) return;
+  await tf.ready();
+  await tf.setBackend('webgl');
+  detector = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+  );
+}
+async function flip() {
+  useFront = !useFront;
+  try { await setupCamera(); } catch (e) { useFront = !useFront; await setupCamera(); }
+}
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.remove('show'), 1400);
+}
+
+let cdTimer = null;
+function calibrate() {
+  if (curEyeDist === 0) { showToast(t('noFaceToast')); return; }
+  if (cdTimer) { cancelCountdown(); return; }
+  let n = 5;
+  cdNumEl.textContent = n;
+  cdEl.classList.add('show');
+  calBtn.textContent = t('cancelN', n);
+  cdEl.style.pointerEvents = 'auto';
+  cdEl.onclick = cancelCountdown;
+  cdTimer = setInterval(() => {
+    n--;
+    if (n <= 0) {
+      baseline = { eyeDist: curEyeDist, centerX: curCenterX, centerY: curCenterY, tilt: curTilt };
+      sessionStartAt = Date.now();
+      pausedMsTotal = 0; pauseStartAt = null;
+      badAccumMs = 0; lastBadTickMs = null; sessionEnded = false;
+      badSinceTs = null;
+      pauseBtn.textContent = t('pauseBtn');
+      finishCountdown();
+      showToast(t('sessionStarted'));
+    } else {
+      cdNumEl.textContent = n;
+      cdNumEl.style.animation = 'none';
+      void cdNumEl.offsetWidth;
+      cdNumEl.style.animation = '';
+      calBtn.textContent = t('cancelN', n);
+    }
+  }, 1000);
+}
+function cancelCountdown() { finishCountdown(); showToast(t('cancelled')); }
+function finishCountdown() {
+  clearInterval(cdTimer); cdTimer = null;
+  cdEl.classList.remove('show');
+  cdEl.style.pointerEvents = 'none'; cdEl.onclick = null;
+  calBtn.textContent = t('setBaseline');
+}
+function toggleMute() {
+  alertEnabled = !alertEnabled;
+  muteBtn.textContent = alertEnabled ? t('alertOn') : t('alertOff');
+  if (!alertEnabled) { flashEl.classList.remove('on'); banner.classList.remove('show'); }
+}
+function triggerAlert() {
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  flashEl.classList.add('on');
+  setTimeout(() => flashEl.classList.remove('on'), 400);
+  banner.classList.add('show');
+  setTimeout(() => banner.classList.remove('show'), 1800);
+}
+function avg(a){ return a.length ? a.reduce((x,y)=>x+y,0)/a.length : 0; }
+function fmtTime(ms){
+  if (ms < 0 || !Number.isFinite(ms)) ms = 0;
+  const s = Math.floor(ms/1000);
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+}
+function activeElapsedMs() {
+  if (!sessionStartAt) return 0;
+  let e = Date.now() - sessionStartAt - pausedMsTotal;
+  if (pauseStartAt) e -= (Date.now() - pauseStartAt);
+  return Math.max(0, e);
+}
+function isSessionActive() { return sessionStartAt !== null && !sessionEnded; }
+function togglePause() {
+  if (!isSessionActive()) { showToast(t('noActiveSession')); return; }
+  if (pauseStartAt === null) {
+    pauseStartAt = Date.now();
+    lastBadTickMs = null; badSinceTs = null;
+    pauseBtn.textContent = t('resumeBtn');
+    showToast(t('toastPaused'));
+  } else {
+    pausedMsTotal += Date.now() - pauseStartAt;
+    pauseStartAt = null;
+    pauseBtn.textContent = t('pauseBtn');
+    showToast(t('toastResumed'));
+  }
+}
+function stopSession() {
+  if (!isSessionActive()) { showToast(t('noActiveSession')); return; }
+  endSession(false);
+}
+let endedNaturally = false;
+function endSession(natural) {
+  if (sessionEnded) return;
+  sessionEnded = true;
+  endedNaturally = !!natural;
+  if (pauseStartAt !== null) { pausedMsTotal += Date.now() - pauseStartAt; pauseStartAt = null; }
+  if (lastBadTickMs !== null) { badAccumMs += (performance.now() - lastBadTickMs); lastBadTickMs = null; }
+  const totalLen = activeElapsedMs();
+  const upMs = Math.max(0, totalLen - badAccumMs);
+  const pct = totalLen > 0 ? Math.round((upMs / totalLen) * 100) : 100;
+  sumPctEl.textContent = pct + '%';
+  sumPctEl.classList.remove('good','warn','bad');
+  if (pct >= 85) sumPctEl.classList.add('good');
+  else if (pct >= 60) sumPctEl.classList.add('warn');
+  else sumPctEl.classList.add('bad');
+  sumLenEl.textContent = fmtTime(totalLen);
+  sumUpEl.textContent = fmtTime(upMs);
+  sumBadEl.textContent = fmtTime(badAccumMs);
+  summaryEl.classList.add('show');
+  if (navigator.vibrate) navigator.vibrate([400, 150, 400]);
+  saveSessionResult(totalLen, upMs, pct);
+}
+async function saveSessionResult(totalLen, upMs, pct) {
+  if (!currentUser) return;
+  sumSaveStatus.textContent = t('saving');
+  const payload = {
+    phone: currentUser.phone, name: currentUser.name,
+    startedAt: sessionStartAt, endedAt: Date.now(),
+    lengthMs: totalLen, slouchMs: badAccumMs,
+    uprightPct: pct, endedNaturally
+  };
+  const res = await api('session', payload);
+  sumSaveStatus.textContent = (res && res.ok) ? t('saved') : t('saveFailed');
+}
+function resetSession() {
+  baseline = null;
+  sessionStartAt = null;
+  pausedMsTotal = 0; pauseStartAt = null;
+  badAccumMs = 0; lastBadTickMs = null;
+  sessionEnded = false; badSinceTs = null;
+  endedNaturally = false;
+  pauseBtn.textContent = t('pauseBtn');
+  summaryEl.classList.remove('show');
+  sumSaveStatus.textContent = '';
+}
+function process(kp) {
+  const le = kp[LEYE], re = kp[REYE];
+  if (!le || !re || le.score < MIN_SCORE || re.score < MIN_SCORE) return null;
+  const eyeDist = Math.hypot(le.x - re.x, le.y - re.y);
+  const cx = (le.x + re.x) / 2, cy = (le.y + re.y) / 2;
+  const tilt = Math.atan2(le.y - re.y, le.x - re.x) * 180 / Math.PI;
+  eyeDistBuf.push(eyeDist); if (eyeDistBuf.length > 5) eyeDistBuf.shift();
+  faceXBuf.push(cx); if (faceXBuf.length > 5) faceXBuf.shift();
+  faceYBuf.push(cy); if (faceYBuf.length > 5) faceYBuf.shift();
+  tiltBuf.push(tilt); if (tiltBuf.length > 5) tiltBuf.shift();
+  curEyeDist = avg(eyeDistBuf);
+  curCenterX = avg(faceXBuf);
+  curCenterY = avg(faceYBuf);
+  curTilt = avg(tiltBuf);
+  let m = 0;
+  if (prevCenter) m = Math.hypot(cx - prevCenter.x, cy - prevCenter.y);
+  prevCenter = { x: cx, y: cy };
+  moveBuf.push(m); if (moveBuf.length > 8) moveBuf.shift();
+  return { centerX: cx, centerY: cy, eyeDist, tilt, movement: avg(moveBuf) };
+}
+function describe(r) {
+  if (!r) return { label: t('noFaceDetected'), color: '#6b7280', glow: false };
+  if (r.movement > MOVE_THRESH) return { label: t('moving'), color: '#fbbf24', glow: true };
+  if (!baseline) return { label: t('sitUprightTap'), color: '#60a5fa', glow: false };
+  const sizeRatio = r.eyeDist / baseline.eyeDist - 1;
+  const yDrift = (r.centerY - baseline.centerY) / canvas.height;
+  const tiltAbs = Math.abs(r.tilt - baseline.tilt);
+  if (sizeRatio > SIZE_FORWARD) return { label: t('leaningForward'), color: '#f87171', glow: true };
+  if (sizeRatio < -SIZE_BACK) return { label: t('leaningBack'), color: '#f87171', glow: true };
+  if (yDrift > DRIFT_DOWN) return { label: t('slumping'), color: '#f87171', glow: true };
+  if (yDrift < -DRIFT_UP) return { label: t('headTooHigh'), color: '#fbbf24', glow: false };
+  if (tiltAbs > TILT_DEG) return { label: t('headTilted'), color: '#fbbf24', glow: false };
+  return { label: t('upright'), color: '#4ade80', glow: true };
+}
+async function loop() {
+  if (!running) return;
+  try {
+    const poses = await detector.estimatePoses(video);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let r = null;
+    if (poses.length > 0) r = process(poses[0].keypoints);
+    else prevCenter = null;
+    const d = describe(r);
+    const isPaused = pauseStartAt !== null;
+    if (isPaused) {
+      dot.style.background = '#60a5fa'; dot.style.boxShadow = 'none';
+      statusEl.textContent = t('paused');
+    } else {
+      dot.style.background = d.color;
+      dot.style.boxShadow = d.glow ? `0 0 12px ${d.color}` : 'none';
+      statusEl.textContent = d.label;
+    }
+    const now = performance.now();
+    let isBad = false;
+    if (!isPaused && r && baseline && r.movement <= MOVE_THRESH) {
+      const sizeRatio = r.eyeDist / baseline.eyeDist - 1;
+      const yDrift = (r.centerY - baseline.centerY) / canvas.height;
+      if (sizeRatio > SIZE_FORWARD || sizeRatio < -SIZE_BACK || yDrift > DRIFT_DOWN) isBad = true;
+    }
+    if (sessionStartAt && !sessionEnded) {
+      if (isBad) {
+        if (lastBadTickMs !== null) badAccumMs += (now - lastBadTickMs);
+        lastBadTickMs = now;
+      } else {
+        lastBadTickMs = null;
+      }
+      const elapsed = activeElapsedMs();
+      const remaining = SESSION_LEN_MS - elapsed;
+      timeLeftEl.textContent = fmtTime(remaining);
+      slouchTimeEl.textContent = fmtTime(badAccumMs);
+      const upPct = elapsed > 0
+        ? Math.max(0, Math.round(((elapsed - badAccumMs) / elapsed) * 100))
+        : 100;
+      uprightPctEl.textContent = upPct + '%';
+      sessionStateEl.textContent = isPaused ? t('paused') : t('sessionActive');
+      if (remaining <= 0) endSession(true);
+    } else if (sessionEnded) {
+      sessionStateEl.textContent = t('sessionDone');
+    } else {
+      timeLeftEl.textContent = '15:00';
+      slouchTimeEl.textContent = '0:00';
+      uprightPctEl.textContent = '—';
+      sessionStateEl.textContent = t('sessionNotStarted');
+    }
+    if (sessionStartAt && !sessionEnded && !isPaused && isBad) {
+      if (badSinceTs === null) badSinceTs = now;
+      const badFor = now - badSinceTs;
+      if (alertEnabled && badFor >= BAD_GRACE_MS && (now - lastAlertTs) >= ALERT_COOLDOWN_MS) {
+        triggerAlert(); lastAlertTs = now;
+      }
+    } else {
+      badSinceTs = null;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  requestAnimationFrame(loop);
+}
+
+applyLanguage();
+</script>
+
+</body>
+</html>
