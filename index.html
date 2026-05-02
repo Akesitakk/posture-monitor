@@ -155,6 +155,16 @@
     text-align: left;
   }
   .splash .start-btn { padding: 16px 32px; font-size: 16px; }
+  .splash .test-sound {
+    background: rgba(74,222,128,0.12);
+    color: #4ade80;
+    border: 1px solid rgba(74,222,128,0.4);
+    margin-top: 12px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .splash .test-sound:active { background: rgba(74,222,128,0.25); }
   .splash .logout {
     background: transparent; color: rgba(255,255,255,0.6);
     border: none; padding: 8px 16px; font-size: 12px;
@@ -348,6 +358,7 @@
     <p data-i18n="desc">Tracks your face to detect when you slouch toward the screen or slump down.</p>
     <div class="tip" data-i18n-html="tip">📱 Place your phone <b>in front of you</b> at eye level (e.g. on top of your monitor or propped on your desk). Sit how you want to be, then tap "Set Baseline".</div>
     <button class="start-btn primary" id="start" data-i18n="startCamera">Start Camera</button>
+    <button class="test-sound" id="testSoundBtn" data-i18n="testSoundBtn">🔊 Test Sound</button>
     <div id="loading" style="display:none">
       <div class="spinner"></div>
       <p data-i18n="loading">Loading AI model…</p>
@@ -423,6 +434,8 @@ const translations = {
     desc:  'Tracks your face to detect when you slouch toward the screen or slump down.',
     tip:   '📱 Place your phone <b>in front of you</b> at eye level. Sit how you want to be, then tap "Set Baseline".<br><br>🔊 <b>iPhone:</b> turn off the silent switch (orange = silent) so you hear alerts.',
     startCamera: 'Start Camera', loading: 'Loading AI model…',
+    testSoundBtn: '🔊 Test Sound',
+    testSoundHeard: 'Did you hear the beep? Make sure silent mode is OFF.',
     detecting: 'Detecting…', sitUprightTap: 'Sit upright, tap Set Baseline',
     noFaceDetected: 'No face detected', moving: 'Moving',
     upright: 'Upright ✓', leaningForward: 'Leaning toward screen',
@@ -464,6 +477,8 @@ const translations = {
     desc: 'ติดตามใบหน้าเพื่อตรวจจับเมื่อคุณก้มเข้าหาจอหรือนั่งหลังค่อม',
     tip: '📱 วางโทรศัพท์ไว้<b>ตรงหน้าคุณ</b>ในระดับสายตา นั่งในท่าที่ต้องการ แล้วแตะ "ตั้งค่าเริ่มต้น"<br><br>🔊 <b>iPhone:</b> ปิดโหมดเงียบ (สวิตช์สีส้ม = เงียบ) เพื่อให้ได้ยินเสียงแจ้งเตือน',
     startCamera: 'เริ่มกล้อง', loading: 'กำลังโหลดโมเดล AI…',
+    testSoundBtn: '🔊 ทดสอบเสียง',
+    testSoundHeard: 'ได้ยินเสียงไหม? อย่าลืมปิดโหมดเงียบ',
     detecting: 'กำลังตรวจจับ…', sitUprightTap: 'นั่งตัวตรง แล้วแตะตั้งค่าเริ่มต้น',
     noFaceDetected: 'ไม่พบใบหน้า', moving: 'กำลังเคลื่อนไหว',
     upright: 'ท่าถูกต้อง ✓', leaningForward: 'เอนเข้าหาจอ',
@@ -726,6 +741,7 @@ const sumUpEl   = document.getElementById('sumUp');
 const sumBadEl  = document.getElementById('sumBad');
 const sumSaveStatus = document.getElementById('sumSaveStatus');
 const newSessionBtn = document.getElementById('newSession');
+const testSoundBtn  = document.getElementById('testSoundBtn');
 
 const NOSE = 0, LEYE = 1, REYE = 2, LEAR = 3, REAR = 4;
 const MIN_SCORE = 0.3;
@@ -754,6 +770,12 @@ muteBtn.addEventListener('click', toggleMute);
 pauseBtn.addEventListener('click', togglePause);
 stopBtn.addEventListener('click', stopSession);
 newSessionBtn.addEventListener('click', resetSession);
+testSoundBtn.addEventListener('click', () => {
+  unlockAudio();
+  beep();
+  if (navigator.vibrate) navigator.vibrate(100);
+  showToast(t('testSoundHeard'));
+});
 
 async function start() {
   startBtn.style.display = 'none';
