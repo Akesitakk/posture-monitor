@@ -1120,8 +1120,8 @@ function describe(r) {
   if (sizeRatio > SIZE_FORWARD) return { label: t('leaningForward'), color: '#f87171', glow: true };
   if (sizeRatio < -SIZE_BACK) return { label: t('leaningBack'), color: '#f87171', glow: true };
   if (yDrift > DRIFT_DOWN) return { label: t('slumping'), color: '#f87171', glow: true };
-  if (yDrift < -DRIFT_UP) return { label: t('headTooHigh'), color: '#fbbf24', glow: false };
-  if (tiltAbs > TILT_DEG) return { label: t('headTilted'), color: '#fbbf24', glow: false };
+  if (yDrift < -DRIFT_UP) return { label: t('headTooHigh'), color: '#f87171', glow: true };
+  if (tiltAbs > TILT_DEG) return { label: t('headTilted'), color: '#f87171', glow: true };
   return { label: t('upright'), color: '#4ade80', glow: true };
 }
 async function loop() {
@@ -1147,7 +1147,14 @@ async function loop() {
     if (!isPaused && r && baseline && r.movement <= MOVE_THRESH) {
       const sizeRatio = r.eyeDist / baseline.eyeDist - 1;
       const yDrift = (r.centerY - baseline.centerY) / canvas.height;
-      if (sizeRatio > SIZE_FORWARD || sizeRatio < -SIZE_BACK || yDrift > DRIFT_DOWN) isBad = true;
+      const tiltAbs = Math.abs(r.tilt - baseline.tilt);
+      if (
+        sizeRatio >  SIZE_FORWARD ||   // leaning toward screen
+        sizeRatio < -SIZE_BACK    ||   // leaning back
+        yDrift    >  DRIFT_DOWN   ||   // slumping down
+        yDrift    < -DRIFT_UP     ||   // head too high
+        tiltAbs   >  TILT_DEG          // head tilted
+      ) isBad = true;
     }
     if (sessionStartAt && !sessionEnded) {
       if (isBad) {
