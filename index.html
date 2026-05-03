@@ -372,7 +372,7 @@
     <p class="desc" data-i18n="loginDesc">Enter your phone number to continue.</p>
     <div class="field">
       <label data-i18n="phoneLabel">Phone number (10 digits)</label>
-      <input type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="10" id="loginPhone" autocomplete="tel" placeholder="0812345678">
+      <input type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="10" id="loginPhone" autocomplete="tel" placeholder="0XXXXXXXXX">
     </div>
     <button class="submit" id="loginSubmit" data-i18n="continueBtn">Continue</button>
     <div class="err-msg" id="loginError"></div>
@@ -425,7 +425,7 @@ const translations = {
     backToLogin: '← Back to login',
     welcomeBack: 'Welcome back, {name}', welcomeNew: 'Welcome, {name}',
     logoutBtn: 'Logout',
-    errInvalidPhone: 'Please enter a 10-digit phone number.',
+    errInvalidPhone: 'Please enter a 10-digit phone number starting with 0.',
     errInvalidName:  'Please enter your name.',
     errInvalidAge:   'Please enter a valid age (1–120).',
     errPhoneExists:  'That phone is already registered. Please log in.',
@@ -468,7 +468,7 @@ const translations = {
     backToLogin: '← กลับไปเข้าสู่ระบบ',
     welcomeBack: 'ยินดีต้อนรับกลับ, {name}', welcomeNew: 'ยินดีต้อนรับ, {name}',
     logoutBtn: 'ออกจากระบบ',
-    errInvalidPhone: 'กรุณาใส่เบอร์โทร 10 หลัก',
+    errInvalidPhone: 'กรุณาใส่เบอร์โทร 10 หลัก ขึ้นต้นด้วย 0',
     errInvalidName:  'กรุณาใส่ชื่อของคุณ',
     errInvalidAge:   'กรุณาใส่อายุ (1–120)',
     errPhoneExists:  'เบอร์นี้ลงทะเบียนแล้ว กรุณาเข้าสู่ระบบ',
@@ -553,7 +553,7 @@ const LocalBackend = {
   _saveU(u)  { localStorage.setItem('pm_users',   JSON.stringify(u)); },
   _saveS(s)  { localStorage.setItem('pm_sessions',JSON.stringify(s)); },
   login({ phone }) {
-    if (!/^\d{10}$/.test(phone)) return { ok:false, error:'invalid_phone' };
+    if (!/^0\d{9}$/.test(phone)) return { ok:false, error:'invalid_phone' };
     const u = this._users()[phone];
     if (!u) return { ok:true, exists:false };
     return { ok:true, exists:true, user:{ phone, name:u.name, age:u.age } };
@@ -561,7 +561,7 @@ const LocalBackend = {
   register({ name, phone, age }) {
     name = String(name||'').trim();
     if (!name) return { ok:false, error:'invalid_name' };
-    if (!/^\d{10}$/.test(phone)) return { ok:false, error:'invalid_phone' };
+    if (!/^0\d{9}$/.test(phone)) return { ok:false, error:'invalid_phone' };
     age = parseInt(age,10);
     if (!age || age<1 || age>120) return { ok:false, error:'invalid_age' };
     const us = this._users();
@@ -617,7 +617,7 @@ async function handleLogin() {
   const phone = loginPhoneIn.value.trim();
   loginErrEl.textContent = '';
   loginPhoneIn.classList.remove('error');
-  if (!/^\d{10}$/.test(phone)) {
+  if (!/^0\d{9}$/.test(phone)) {
     loginPhoneIn.classList.add('error');
     loginErrEl.textContent = t('errInvalidPhone');
     return;
@@ -703,7 +703,7 @@ function logout() {
 }
 try {
   const saved = localStorage.getItem('pm_phone');
-  if (saved && /^\d{10}$/.test(saved)) loginPhoneIn.value = saved;
+  if (saved && /^0\d{9}$/.test(saved)) loginPhoneIn.value = saved;
 } catch {}
 
 // =============================================================
