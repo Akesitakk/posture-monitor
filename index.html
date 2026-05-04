@@ -27,7 +27,7 @@
     z-index: 30;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: 24px;
+    padding: calc(env(safe-area-inset-top, 0px) + 80px) 24px 24px;
     overflow-y: auto;
   }
   .auth.hidden { display: none; }
@@ -165,6 +165,45 @@
     font-weight: 600;
   }
   .splash .test-sound:active { background: rgba(74,222,128,0.25); }
+
+  .cd-picker {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .cd-picker-label {
+    font-size: 13px;
+    opacity: 0.7;
+  }
+  .cd-picker-toggle {
+    display: flex;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 999px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .cd-picker-toggle button {
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.6);
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    min-width: 50px;
+  }
+  .cd-picker-toggle button.active {
+    background: #4ade80;
+    color: #000;
+  }
+  .cd-picker-toggle button:active {
+    transform: scale(0.95);
+  }
   .splash .logout {
     background: transparent; color: rgba(255,255,255,0.6);
     border: none; padding: 8px 16px; font-size: 12px;
@@ -274,25 +313,28 @@
 
   .lang-toggle {
     position: absolute;
-    top: env(safe-area-inset-top, 16px);
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
     right: 16px;
     z-index: 32;
     display: flex;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0,0,0,0.7);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
     border-radius: 999px;
     padding: 3px;
     gap: 2px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
   }
   .lang-toggle button {
     background: transparent; border: none;
-    color: rgba(255,255,255,0.6);
-    padding: 6px 12px; border-radius: 999px;
-    font-size: 12px; font-weight: 600;
+    color: rgba(255,255,255,0.75);
+    padding: 8px 14px; border-radius: 999px;
+    font-size: 13px; font-weight: 600;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 32px;
   }
   .lang-toggle button.active { background: rgba(255,255,255,0.95); color: #000; }
   .lang-toggle button:active { transform: scale(0.95); }
@@ -326,7 +368,6 @@
     <button id="pause" data-i18n="pauseBtn">⏸ Pause</button>
     <button id="stop" data-i18n="stopBtn">⏹ Stop</button>
     <button id="mute" data-i18n="alertOn">⚠️ Alert: On</button>
-    <button id="flip" data-i18n="flipBtn">🔄 Flip</button>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -357,6 +398,15 @@
     <h1 data-i18n="title">Posture Monitor</h1>
     <p data-i18n="desc">Tracks your face to detect when you slouch toward the screen or slump down.</p>
     <div class="tip" data-i18n-html="tip">📱 Place your phone <b>in front of you</b> at eye level (e.g. on top of your monitor or propped on your desk). Sit how you want to be, then tap "Set Baseline".</div>
+
+    <div class="cd-picker">
+      <span class="cd-picker-label" data-i18n="countdownPickerLabel">Baseline countdown:</span>
+      <div class="cd-picker-toggle" id="cdPicker">
+        <button data-cd="5" class="active">5s</button>
+        <button data-cd="10">10s</button>
+      </div>
+    </div>
+
     <button class="start-btn primary" id="start" data-i18n="startCamera">Start Camera</button>
     <button class="test-sound" id="testSoundBtn" data-i18n="testSoundBtn">🔊 Test Sound</button>
     <div id="loading" style="display:none">
@@ -436,6 +486,7 @@ const translations = {
     startCamera: 'Start Camera', loading: 'Loading AI model…',
     testSoundBtn: '🔊 Test Sound',
     testSoundHeard: 'Did you hear the beep? Make sure silent mode is OFF.',
+    countdownPickerLabel: 'Baseline countdown:',
     detecting: 'Detecting…', sitUprightTap: 'Sit upright, tap Set Baseline',
     noFaceDetected: 'No face detected', moving: 'Moving',
     upright: 'Upright ✓', leaningForward: 'Leaning toward screen',
@@ -479,6 +530,7 @@ const translations = {
     startCamera: 'เริ่มกล้อง', loading: 'กำลังโหลดโมเดล AI…',
     testSoundBtn: '🔊 ทดสอบเสียง',
     testSoundHeard: 'ได้ยินเสียงไหม? อย่าลืมปิดโหมดเงียบ',
+    countdownPickerLabel: 'นับถอยหลัง:',
     detecting: 'กำลังตรวจจับ…', sitUprightTap: 'นั่งตัวตรง แล้วแตะตั้งค่าเริ่มต้น',
     noFaceDetected: 'ไม่พบใบหน้า', moving: 'กำลังเคลื่อนไหว',
     upright: 'ท่าถูกต้อง ✓', leaningForward: 'เอนเข้าหาจอ',
@@ -718,7 +770,6 @@ const loading  = document.getElementById('loading');
 const errEl    = document.getElementById('error');
 const hud      = document.getElementById('hud');
 const ctrls    = document.getElementById('controls');
-const flipBtn  = document.getElementById('flip');
 const calBtn   = document.getElementById('calibrate');
 const muteBtn  = document.getElementById('mute');
 const pauseBtn = document.getElementById('pause');
@@ -749,6 +800,7 @@ const MIN_SCORE = 0.3;
 let detector = null;
 let useFront = true;
 let running  = false;
+let countdownSeconds = 5;   // user-selectable: 5 or 10
 const eyeDistBuf=[], faceXBuf=[], faceYBuf=[], tiltBuf=[], moveBuf=[];
 let curEyeDist=0, curCenterX=0, curCenterY=0, curTilt=0;
 let prevCenter = null;
@@ -766,7 +818,6 @@ const DRIFT_DOWN = 0.10, DRIFT_UP = 0.10;
 const TILT_DEG = 12, MOVE_THRESH = 8;
 
 startBtn.addEventListener('click', start);
-flipBtn.addEventListener('click', flip);
 calBtn.addEventListener('click', calibrate);
 muteBtn.addEventListener('click', toggleMute);
 pauseBtn.addEventListener('click', togglePause);
@@ -777,6 +828,16 @@ testSoundBtn.addEventListener('click', () => {
   beep();
   if (navigator.vibrate) navigator.vibrate(100);
   showToast(t('testSoundHeard'));
+});
+
+// Countdown duration picker (5s or 10s)
+document.querySelectorAll('#cdPicker button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    countdownSeconds = parseInt(btn.dataset.cd, 10);
+    document.querySelectorAll('#cdPicker button').forEach(b => {
+      b.classList.toggle('active', b.dataset.cd === btn.dataset.cd);
+    });
+  });
 });
 
 async function start() {
@@ -826,9 +887,10 @@ async function loadModel() {
   );
 }
 async function flip() {
-  useFront = !useFront;
-  try { await setupCamera(); } catch (e) { useFront = !useFront; await setupCamera(); }
+  // Flip camera removed — front camera is always used
 }
+
+
 function showToast(msg) {
   toast.textContent = msg;
   toast.classList.add('show');
@@ -840,7 +902,7 @@ let cdTimer = null;
 function calibrate() {
   if (curEyeDist === 0) { showToast(t('noFaceToast')); return; }
   if (cdTimer) { cancelCountdown(); return; }
-  let n = 5;
+  let n = countdownSeconds;
   cdNumEl.textContent = n;
   cdEl.classList.add('show');
   calBtn.textContent = t('cancelN', n);
