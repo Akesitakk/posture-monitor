@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Posture Monitor</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -20,17 +20,19 @@
     width: 100%; height: 100%; object-fit: cover;
   }
   .mirrored video, .mirrored canvas { transform: scaleX(-1); }
-
   .auth {
     position: absolute; inset: 0;
     background: #0a0a0a;
     z-index: 30;
     display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: calc(env(safe-area-inset-top, 0px) + 80px) 24px 24px;
+    align-items: center; justify-content: flex-start;
+    padding: calc(env(safe-area-inset-top, 0px) + 70px) 24px calc(env(safe-area-inset-bottom, 0px) + 40px);
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .auth.hidden { display: none; }
+  /* Center content vertically when it fits; allow scroll when it doesn't */
+  .auth::before, .auth::after { content: ''; margin: auto; flex-shrink: 0; }
   .auth h1 { font-size: 24px; margin-bottom: 6px; text-align: center; }
   .auth .desc { opacity: 0.65; font-size: 14px; max-width: 320px; text-align: center; margin-bottom: 28px; }
   .auth .field { width: 100%; max-width: 320px; margin-bottom: 14px; }
@@ -76,15 +78,14 @@
   }
   .auth .small { font-size: 12px; opacity: 0.6; margin-top: 16px; text-align: center; }
   .auth .small a { color: #4ade80; text-decoration: none; cursor: pointer; }
-
   .hud {
     position: absolute;
-    top: env(safe-area-inset-top, 16px);
+    top: calc(env(safe-area-inset-top, 16px) + 4px);
     left: 16px; right: 16px;
     z-index: 10;
     display: flex; flex-direction: column; gap: 10px;
     pointer-events: none;
-    padding-right: 110px;
+    padding-right: 96px;
   }
   .panel {
     background: rgba(0,0,0,0.6);
@@ -102,18 +103,18 @@
   .dot {
     width: 12px; height: 12px; border-radius: 50%;
     background: #6b7280;
+    flex-shrink: 0;
     transition: background 0.2s, box-shadow 0.2s;
   }
   .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; }
   .metrics .label { opacity: 0.55; }
   .metrics .value { font-variant-numeric: tabular-nums; font-weight: 600; }
-
   .controls {
     position: absolute;
-    bottom: env(safe-area-inset-bottom, 24px);
+    bottom: calc(env(safe-area-inset-bottom, 24px) + 4px);
     left: 0; right: 0;
-    display: flex; justify-content: center; gap: 10px;
-    z-index: 10; padding: 16px;
+    display: flex; justify-content: center; gap: 8px;
+    z-index: 10; padding: 12px;
     flex-wrap: wrap;
   }
   button {
@@ -131,15 +132,19 @@
   button:active { transform: scale(0.96); background: rgba(255,255,255,0.25); }
   button.primary { background: #4ade80; color: #000; border-color: #4ade80; font-weight: 700; }
   button.primary:active { background: #22c55e; }
-
   .splash {
     position: absolute; inset: 0;
     background: #0a0a0a;
     display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    z-index: 20; text-align: center; padding: 24px;
+    align-items: center; justify-content: flex-start;
+    z-index: 20; text-align: center;
+    padding: calc(env(safe-area-inset-top, 0px) + 60px) 24px calc(env(safe-area-inset-bottom, 0px) + 40px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .splash.hidden { display: none; }
+  /* Center splash content vertically when it fits; scroll when it doesn't */
+  .splash::before, .splash::after { content: ''; margin: auto; flex-shrink: 0; }
   .splash .greeting { font-size: 13px; color: #4ade80; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
   .splash h1 { font-size: 22px; margin-bottom: 8px; }
   .splash p { opacity: 0.7; font-size: 14px; max-width: 320px; margin-bottom: 6px; }
@@ -165,7 +170,6 @@
     font-weight: 600;
   }
   .splash .test-sound:active { background: rgba(74,222,128,0.25); }
-
   .cd-picker {
     display: flex;
     align-items: center;
@@ -219,7 +223,6 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .error { color: #f87171; font-size: 13px; margin-top: 12px; max-width: 320px; }
-
   .toast {
     position: absolute;
     bottom: 100px; left: 50%;
@@ -238,10 +241,8 @@
     max-width: 80vw;
   }
   .toast.show { opacity: 1; }
-
   .flash { position: absolute; inset: 0; background: #ef4444; opacity: 0; pointer-events: none; z-index: 5; transition: opacity 0.15s; mix-blend-mode: multiply; }
   .flash.on { opacity: 0.35; }
-
   .alert-banner {
     position: absolute;
     top: 50%; left: 50%;
@@ -259,7 +260,6 @@
     text-align: center;
   }
   .alert-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-
   .countdown {
     position: absolute; inset: 0;
     display: flex; flex-direction: column;
@@ -281,7 +281,6 @@
     100% { transform: scale(1);   opacity: 1; }
   }
   .countdown .hint { font-size: 13px; opacity: 0.6; margin-top: 12px; }
-
   .summary {
     position: absolute; inset: 0;
     background: rgba(0, 0, 0, 0.85);
@@ -290,10 +289,15 @@
     z-index: 25;
     display: none;
     flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: 24px; text-align: center;
+    align-items: center; justify-content: flex-start;
+    padding: calc(env(safe-area-inset-top, 0px) + 50px) 24px calc(env(safe-area-inset-bottom, 0px) + 40px);
+    text-align: center;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .summary.show { display: flex; }
+  /* Center summary content vertically when it fits; scroll when it doesn't */
+  .summary.show::before, .summary.show::after { content: ''; margin: auto; flex-shrink: 0; }
   .summary h2 { font-size: 28px; margin-bottom: 24px; }
   .summary .big { font-size: 64px; font-weight: 800; line-height: 1; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
   .summary .big.good { color: #4ade80; text-shadow: 0 0 30px rgba(74,222,128,0.5); }
@@ -302,7 +306,7 @@
   .summary .big-label { opacity: 0.7; font-size: 14px; margin-bottom: 32px; }
   .summary .row {
     display: flex; justify-content: space-between;
-    width: 280px; padding: 10px 0;
+    width: 280px; max-width: 80vw; padding: 10px 0;
     border-bottom: 1px solid rgba(255,255,255,0.1);
     font-size: 15px;
   }
@@ -310,7 +314,6 @@
   .summary .row span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
   .summary .save-status { margin-top: 16px; font-size: 12px; opacity: 0.7; min-height: 16px; }
   .summary .actions { display: flex; gap: 10px; margin-top: 24px; }
-
   .lang-toggle {
     position: absolute;
     top: calc(env(safe-area-inset-top, 0px) + 12px);
@@ -338,19 +341,31 @@
   }
   .lang-toggle button.active { background: rgba(255,255,255,0.95); color: #000; }
   .lang-toggle button:active { transform: scale(0.95); }
+
+  /* ---- Small / short phone screens ---- */
+  @media (max-width: 380px) {
+    .controls { gap: 6px; padding: 10px; }
+    button { padding: 11px 14px; font-size: 13px; }
+    .splash .start-btn { padding: 14px 28px; font-size: 15px; }
+    .auth h1, .splash h1 { font-size: 20px; }
+  }
+  @media (max-height: 680px) {
+    .countdown .num { font-size: 96px; }
+    .summary .big { font-size: 52px; }
+    .summary h2 { font-size: 24px; margin-bottom: 16px; }
+    .summary .big-label { margin-bottom: 20px; }
+    .splash .tip { margin: 12px 0 18px; }
+  }
 </style>
 </head>
 <body>
-
 <div class="stage" id="stage">
   <video id="video" autoplay playsinline muted></video>
   <canvas id="canvas"></canvas>
-
   <div class="lang-toggle" id="langToggle">
     <button data-lang="en">EN</button>
     <button data-lang="th" class="active">ไทย</button>
   </div>
-
   <div class="hud" id="hud" style="display:none">
     <div class="panel">
       <div class="status-row"><span class="dot" id="dot"></span><span id="status">Detecting…</span></div>
@@ -362,24 +377,20 @@
       </div>
     </div>
   </div>
-
   <div class="controls" id="controls" style="display:none">
     <button id="calibrate" class="primary" data-i18n="setBaseline">Set Baseline</button>
     <button id="pause" data-i18n="pauseBtn">⏸ Pause</button>
     <button id="stop" data-i18n="stopBtn">⏹ Stop</button>
     <button id="mute" data-i18n="alertOn">⚠️ Alert: On</button>
   </div>
-
   <div class="toast" id="toast"></div>
   <div class="flash" id="flash"></div>
   <div class="alert-banner" id="alertBanner" data-i18n="sitUpStraight">⚠️ Sit up straight!</div>
-
   <div class="countdown" id="countdown">
     <div class="label" data-i18n="countdownLabel">Sit upright… capturing baseline in</div>
     <div class="num" id="countdownNum">5</div>
     <div class="hint" data-i18n="countdownHint">Tap anywhere to cancel</div>
   </div>
-
   <div class="summary" id="summary">
     <h2 data-i18n="summaryTitle">Session Complete</h2>
     <div class="big" id="sumPct">—</div>
@@ -392,13 +403,11 @@
       <button class="primary" id="newSession" data-i18n="newSessionBtn">New Session</button>
     </div>
   </div>
-
   <div class="splash hidden" id="splash">
     <div class="greeting" id="greeting"></div>
     <h1 data-i18n="title">Posture Monitor</h1>
     <p data-i18n="desc">Tracks your face to detect when you slouch toward the screen or slump down.</p>
     <div class="tip" data-i18n-html="tip">📱 Place your phone <b>in front of you</b> at eye level (e.g. on top of your monitor or propped on your desk). Sit how you want to be, then tap "Set Baseline".</div>
-
     <div class="cd-picker">
       <span class="cd-picker-label" data-i18n="countdownPickerLabel">Baseline countdown:</span>
       <div class="cd-picker-toggle" id="cdPicker">
@@ -406,7 +415,6 @@
         <button data-cd="10">10s</button>
       </div>
     </div>
-
     <button class="start-btn primary" id="start" data-i18n="startCamera">Start Camera</button>
     <button class="test-sound" id="testSoundBtn" data-i18n="testSoundBtn">🔊 Test Sound</button>
     <div id="loading" style="display:none">
@@ -416,7 +424,6 @@
     <div class="error" id="error"></div>
     <button class="logout" id="logoutBtn" data-i18n="logoutBtn">Logout</button>
   </div>
-
   <div class="auth" id="loginScreen">
     <h1 data-i18n="loginTitle">Sign In</h1>
     <p class="desc" data-i18n="loginDesc">Enter your phone number to continue.</p>
@@ -427,7 +434,6 @@
     <button class="submit" id="loginSubmit" data-i18n="continueBtn">Continue</button>
     <div class="err-msg" id="loginError"></div>
   </div>
-
   <div class="auth hidden" id="registerScreen">
     <h1 data-i18n="registerTitle">Create Account</h1>
     <p class="desc" data-i18n="registerDesc">Welcome! Tell us about yourself.</p>
@@ -449,20 +455,16 @@
       <a id="regBack" data-i18n="backToLogin">← Back to login</a>
     </div>
   </div>
-
 </div>
-
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.15.0/dist/tf-core.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.15.0/dist/tf-converter.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.15.0/dist/tf-backend-webgl.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
-
 <script>
 // =============================================================
 //  ⚙️ CONFIG — paste your Apps Script Web App URL here
 // =============================================================
 const API_URL = 'https://script.google.com/macros/s/AKfycbzExwAeyilMBQxW9zqWWOSfTwKM0kPBk9ib38HuESABy8AdeAkjIPTpdFJe3bpE2yK4/exec';
-
 // =============================================================
 //  i18n
 // =============================================================
@@ -576,12 +578,10 @@ function applyLanguage() {
 document.querySelectorAll('#langToggle button').forEach(btn => {
   btn.addEventListener('click', () => { lang = btn.dataset.lang; applyLanguage(); });
 });
-
 // =============================================================
 //  Backend — JSON over fetch (with localStorage fallback)
 // =============================================================
 const apiConfigured = API_URL && !API_URL.includes('PASTE_YOUR');
-
 async function api(action, payload) {
   if (!apiConfigured) return LocalBackend[action](payload);
   try {
@@ -598,7 +598,6 @@ async function api(action, payload) {
     return { ok: false, error: 'network' };
   }
 }
-
 const LocalBackend = {
   _users()   { try { return JSON.parse(localStorage.getItem('pm_users')   || '{}'); } catch { return {}; } },
   _sess()    { try { return JSON.parse(localStorage.getItem('pm_sessions')|| '[]'); } catch { return []; } },
@@ -628,7 +627,6 @@ const LocalBackend = {
     return { ok:true };
   }
 };
-
 // =============================================================
 //  Auth flow
 // =============================================================
@@ -646,10 +644,8 @@ const regSubmitBtn  = document.getElementById('regSubmit');
 const regErrEl      = document.getElementById('regError');
 const regBackLink   = document.getElementById('regBack');
 const logoutBtn     = document.getElementById('logoutBtn');
-
 let currentUser = null;
 let isFirstLogin = false;
-
 loginPhoneIn.addEventListener('input', () => {
   loginPhoneIn.value = loginPhoneIn.value.replace(/\D/g, '').slice(0, 10);
   loginPhoneIn.classList.remove('error');
@@ -664,7 +660,6 @@ regBackLink.addEventListener('click', () => {
   loginErrEl.textContent = '';
 });
 logoutBtn.addEventListener('click', logout);
-
 async function handleLogin() {
   const phone = loginPhoneIn.value.trim();
   loginErrEl.textContent = '';
@@ -694,7 +689,6 @@ async function handleLogin() {
     loginSubmitBtn.disabled = false;
   }
 }
-
 async function handleRegister() {
   const phone = regPhoneIn.value.trim();
   const name  = regNameIn.value.trim();
@@ -703,7 +697,6 @@ async function handleRegister() {
   [regNameIn, regAgeIn].forEach(el => el.classList.remove('error'));
   if (!name) { regNameIn.classList.add('error'); regErrEl.textContent = t('errInvalidName'); return; }
   if (!age || age<1||age>120) { regAgeIn.classList.add('error'); regErrEl.textContent = t('errInvalidAge'); return; }
-
   regSubmitBtn.disabled = true;
   try {
     const res = await api('register', { name, phone, age });
@@ -716,7 +709,6 @@ async function handleRegister() {
     regSubmitBtn.disabled = false;
   }
 }
-
 function mapError(code) {
   switch (code) {
     case 'invalid_phone': return t('errInvalidPhone');
@@ -739,7 +731,7 @@ function goToSplash() {
 }
 function logout() {
   if (video.srcObject) {
-    try { video.srcObject.getTracks().forEach(t => t.stop()); } catch {}
+    try { video.srcObject.getTracks().forEach(tr => tr.stop()); } catch {}
     video.srcObject = null;
   }
   running = false;
@@ -757,7 +749,6 @@ try {
   const saved = localStorage.getItem('pm_phone');
   if (saved && /^0\d{9}$/.test(saved)) loginPhoneIn.value = saved;
 } catch {}
-
 // =============================================================
 //  Posture monitor app
 // =============================================================
@@ -793,10 +784,8 @@ const sumBadEl  = document.getElementById('sumBad');
 const sumSaveStatus = document.getElementById('sumSaveStatus');
 const newSessionBtn = document.getElementById('newSession');
 const testSoundBtn  = document.getElementById('testSoundBtn');
-
 const NOSE = 0, LEYE = 1, REYE = 2, LEAR = 3, REAR = 4;
 const MIN_SCORE = 0.3;
-
 let detector = null;
 let useFront = true;
 let running  = false;
@@ -816,7 +805,6 @@ const BAD_GRACE_MS = 3000, ALERT_COOLDOWN_MS = 2000;
 const SIZE_FORWARD = 0.10, SIZE_BACK = 0.10;
 const DRIFT_DOWN = 0.10, DRIFT_UP = 0.10;
 const TILT_DEG = 12, MOVE_THRESH = 8;
-
 startBtn.addEventListener('click', start);
 calBtn.addEventListener('click', calibrate);
 muteBtn.addEventListener('click', toggleMute);
@@ -829,7 +817,6 @@ testSoundBtn.addEventListener('click', () => {
   if (navigator.vibrate) navigator.vibrate(100);
   showToast(t('testSoundHeard'));
 });
-
 // Countdown duration picker (5s or 10s)
 document.querySelectorAll('#cdPicker button').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -839,7 +826,6 @@ document.querySelectorAll('#cdPicker button').forEach(btn => {
     });
   });
 });
-
 async function start() {
   startBtn.style.display = 'none';
   loading.style.display = 'block';
@@ -861,7 +847,7 @@ async function start() {
   }
 }
 async function setupCamera() {
-  if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+  if (video.srcObject) video.srcObject.getTracks().forEach(tr => tr.stop());
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -881,23 +867,23 @@ async function loadModel() {
   if (detector) return;
   await tf.ready();
   await tf.setBackend('webgl');
+  // MoveNet THUNDER — more accurate than Lightning at locating facial keypoints,
+  // so it detects smaller posture shifts (more sensitive). Slightly slower and a
+  // bigger first-load, but fine for slow posture monitoring on a phone.
   detector = await poseDetection.createDetector(
     poseDetection.SupportedModels.MoveNet,
-    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER }
   );
 }
 async function flip() {
   // Flip camera removed — front camera is always used
 }
-
-
 function showToast(msg) {
   toast.textContent = msg;
   toast.classList.add('show');
   clearTimeout(showToast._t);
   showToast._t = setTimeout(() => toast.classList.remove('show'), 1400);
 }
-
 let cdTimer = null;
 function calibrate() {
   if (curEyeDist === 0) { showToast(t('noFaceToast')); return; }
@@ -948,7 +934,6 @@ function toggleMute() {
 // =============================================================
 let alertAudio = null;
 let audioCtx2  = null;     // separate context just for the fallback
-
 function makeBeepWav() {
   const sampleRate = 22050;
   const duration   = 0.65;
@@ -986,7 +971,6 @@ function makeBeepWav() {
   }
   return new Blob([buffer], { type: 'audio/wav' });
 }
-
 function ensureAlertAudio() {
   if (alertAudio) return;
   alertAudio = new Audio();
@@ -994,14 +978,12 @@ function ensureAlertAudio() {
   alertAudio.preload = 'auto';
   alertAudio.load();
 }
-
 function ensureWebAudio() {
   if (audioCtx2) return;
   try {
     audioCtx2 = new (window.AudioContext || window.webkitAudioContext)();
   } catch {}
 }
-
 // Silent unlock during a user gesture so subsequent .play() calls work.
 function unlockAudio() {
   ensureAlertAudio();
@@ -1030,7 +1012,6 @@ function unlockAudio() {
     }
   } catch {}
 }
-
 // Web Audio fallback — generates the same alarm using oscillators
 function webAudioBeep() {
   if (!audioCtx2) return false;
@@ -1053,7 +1034,6 @@ function webAudioBeep() {
     return true;
   } catch (e) { console.warn('webAudioBeep failed', e); return false; }
 }
-
 function beep() {
   ensureAlertAudio();
   // Always fire Web Audio backup too — they layer harmlessly and double the chance of being heard
@@ -1065,12 +1045,10 @@ function beep() {
     if (p && p.catch) p.catch(e => console.warn('alert play failed', e));
   } catch (e) { console.warn(e); }
 }
-
 function testBeep() {
   // Same as beep — also serves as audio confirmation
   beep();
 }
-
 function triggerAlert() {
   beep();
   if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
@@ -1260,9 +1238,7 @@ async function loop() {
   }
   requestAnimationFrame(loop);
 }
-
 applyLanguage();
 </script>
-
 </body>
 </html>
